@@ -1,0 +1,23 @@
+ktor {
+    deployment {
+        port = 8080
+    }
+    application {
+        modules = [ nu.lindeman.iiif.MainKt.module ]
+    }
+}
+
+app {
+    nuxeo {
+        username = NuxeoUsername
+        password = NuxeoPassword
+        url = "http://localhost:8180/nuxeo/api/v1"
+        ; proxy = "http://optional-proxy-address:8080/"
+    }
+    iiif {
+        prefix = "http://localhost:8080/iiif/3"
+    }
+    cantaloupe {
+        server = "http://192.168.1.110:8280"
+    }
+}
