@@ -1,6 +1,5 @@
 /src/main/resources/application.conf
 build/
 build/**
-.idea
 .gradle
 gradle.properties
