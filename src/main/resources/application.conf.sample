@@ -22,5 +22,6 @@ app {
     cantaloupe {
         server = "http://localhost:8280"
         path = iiif/3
+        mode = direct ; use 'proxy' to to use the built-in reverse Cantaloupe proxy
     }
 }

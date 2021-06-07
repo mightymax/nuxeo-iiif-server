@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8">
+  <!-- By default uses Roboto font. Be sure to load this or change the font -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
+  <title>Nuxeo IIIF Manifest viewer</title>
+  <script src="https://unpkg.com/mirador@latest/dist/mirador.min.js"></script>
+  <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+        body, #viewer {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+<div id="viewer"></div>
+<script type="text/javascript">
+    var mirador = Mirador.viewer({
+      id: "viewer",
+      manifests: {
+        "${manifest}": {
+        provider: "Memorix IIIF Demonstrator"
+        }
+    },
+    windows: [
+        {
+            loadedManifest: "${manifest}",
+            canvasIndex: 0,
+            thumbnailNavigationPosition: "off"
+        }
+    ],
+    window: {
+      allowFullscreen: true,
+      allowMaximize: false,
+      allowTopMenuButton: false,
+      allowClose: false,
+      sideBarOpenByDefault: false,
+      views: [{key: 'single'}],
+      panels: {
+        info: true,
+        attribution: true,
+        canvas: false,
+        annotations: false,
+        search: false,
+        layers: false,
+      }
+    },
+    workspace: {
+      showZoomControls: true,
+      allowNewWindows: false,
+
+      type: 'mosaic', // Which workspace type to load by default. Other possible values are "elastic"
+    },
+    workspaceControlPanel: {
+      enabled: false,
+    },
+  },
+);
+    </script>
+</body>
+</html>

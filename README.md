@@ -28,8 +28,11 @@ Tested with Cantaloupe 5.0.2. To use this app with Cantaloupe, make sure to use 
 source.static = HttpSource
 HttpSource.allow_insecure = true
 HttpSource.lookup_strategy = BasicLookupStrategy
-# point this to the URL/Port of this App:
+# point this to the URL/Port of this App to use it's build-in proxy:
+# (use this if the Nuxeo server does not allow direct access)
 HttpSource.BasicLookupStrategy.url_prefix = http://localhost:8180/blob/
+# point this to the URL/Port a Cantaloupe server:
+# HttpSource.BasicLookupStrategy.url_prefix = http://localhost:8080/
 HttpSource.chunking.enabled = true
 delegate_script.enabled = false
 processor.selection_strategy = ManualSelectionStrategy

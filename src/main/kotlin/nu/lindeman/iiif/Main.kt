@@ -54,7 +54,16 @@ fun Application.module() {
     routing {
         cantaloupeReverseProxy(config.getConfig("app.cantaloupe"))
         nuxeoReverseProxy(nuxeo)
-        manifest(nuxeo, serverAddressUrl.clone().path(config.getString("app.cantaloupe.path")))
+
+        val url: URLBuilder
+        if (config.getString("app.cantaloupe.mode") == "proxy") {
+            url = serverAddressUrl.clone()
+        } else {
+            url = URLBuilder(config.getString("app.cantaloupe.url"))
+        }
+        url.path(config.getString("app.cantaloupe.path"))
+
+        manifest(nuxeo, url)
         document(nuxeo)
         documents(nuxeo)
         viewer(serverAddressUrl)
@@ -105,6 +114,17 @@ fun Route.manifest(nuxeo: Nuxeo, baseUrl: URLBuilder) {
         } else {
             val pictures = nuxeo.getDocuments("parentId", folder.uid, Nuxeo.PrimaryTypePicture)
             val manifest = Manifest(baseUrl, folder, pictures)
+            call.respond(manifest)
+        }
+    }
+
+    get("/manifest/from/picture/by/{key}/{value}") {
+        val pictures = nuxeo.getDocuments(call.parameters["key"].toString(), call.parameters["value"].toString(), Nuxeo.PrimaryTypePicture)
+        if (pictures.resultsCount == 0)  {
+            call.response.status(HttpStatusCode.NotFound)
+            call.respondText("Documents of type '${call.parameters["primaryType"]}' with ${call.parameters["key"]} = '${call.parameters["value"]}' not found\n")
+        } else {
+            val manifest = Manifest(baseUrl, pictures.entries[0], pictures)
             call.respond(manifest)
         }
     }
@@ -184,8 +204,13 @@ fun Route.cantaloupeReverseProxy(config: Config) {
 
 fun Route.viewer(url: URLBuilder)
 {
-    get ("/viewer/from/folder/by/{...}") {
+    get ("/viewer/from/{picture_or_folder}/by/{...}") {
         val manifest = "${url.buildString()}${call.request.uri.replace("/viewer/", "/manifest/")}"
-        call.respond(FreeMarkerContent("mirador.ftl", mapOf("manifest" to manifest)))
+        if (call.parameters["picture_or_folder"].toString().lowercase() == "picture") {
+            call.respond(FreeMarkerContent("mirador.picture.html", mapOf("manifest" to manifest)))
+        } else {
+            call.respond(FreeMarkerContent("mirador.folder.html", mapOf("manifest" to manifest)))
+        }
     }
+
 }
