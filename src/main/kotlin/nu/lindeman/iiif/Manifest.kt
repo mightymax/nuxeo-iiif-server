@@ -1,6 +1,6 @@
 package nu.lindeman.iiif
 
-import com.typesafe.config.Config
+import io.ktor.http.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import nu.lindeman.iiif.nuxeo.Document
@@ -10,112 +10,110 @@ import nu.lindeman.iiif.nuxeo.Documents
 class Manifest
     constructor(
         @Transient
-        var config: Config? = null,
+        var iiifUrl: URLBuilder = URLBuilder("http://localhost/iiif/3"),
 
         @Transient
-        var folder: Document? = null,
+        var folder: Document = Document(),
 
         @Transient
-        var pictures: Documents? = null
+        var pictures: Documents = Documents()
     )
 {
-    var id: String
-    var type: String
-    var context: String
-    var label: Label?
-    var thumbnail: Thumbnail
-    var items: Array<CanvasItem> = emptyArray()
+
+    @Transient
+    var baseUrl = iiifUrl.clone().path("manifest/from/folder/uid/${folder.uid}")
+
+    private var id: String
+    private var type: String
+    private var context: String
+    private var label: Label?
+    private var thumbnail: Thumbnail
+    private var items: Array<CanvasItem> = emptyArray()
 
     init {
+        id = baseUrl.buildString()
         context = "http://iiif.io/api/presentation/3/context.json"
-        id = "${config?.getString("prefix")}/manifest/folder/${folder?.uid}"
         type = "Manifest"
-        label = Label(folder?.properties?.dcTitle!!)
-        thumbnail = Thumbnail(pictures!!.entries[0])
-        items = Array<CanvasItem>(pictures!!.currentPageSize) { i ->
-            CanvasItem(pictures!!.entries[i], config)
+        label = Label(folder.properties?.dcTitle!!)
+        thumbnail = Thumbnail(pictures.entries[0])
+        items = Array(pictures.currentPageSize) { i ->
+            CanvasItem(pictures.entries[i])
         }
     }
 
     @Serializable
-    class Label (@Transient val label: String = "") {
+    inner class Label (@Transient val label: String = "") {
         val none: Array<String> = arrayOf(label)
     }
 
     @Serializable
-    class CanvasItem(
-        @Transient val picture: Document? = null,
-        @Transient val config: Config? = null
+    inner class CanvasItem(
+        @Transient val picture: Document = Document()
     ) {
-        val id: String
-        val type: String
-        val label: Label
-        val height: Int
-        val width: Int
-        var items: Array<AnnotationPage> = emptyArray()
+        private val id: String
+        private val type: String
+        private val label: Label
+        private var height: Int = 0
+        private var width: Int = 0
+        private var items: Array<AnnotationPage> = emptyArray()
 
         init {
-            id = "${config?.getString("prefix")}/${picture?.uid}/canvas"
+            id = "${baseUrl.buildString()}/Canvas/${picture.uid}"
             type = "Canvas"
-            label = Label(picture?.properties?.dcTitle.toString())
-            height = picture?.properties?.pictureInfo?.height!!
-            width = picture.properties.pictureInfo.width!!
+            label = Label(picture.properties?.dcTitle.toString())
+            picture.properties?.pictureInfo?.let{
+                width = it.width
+                height = it.height
+            }
             items = Array<AnnotationPage>(1) { _ ->
-                AnnotationPage(picture, config)
+                AnnotationPage()
             }
         }
 
         @Serializable
-        class AnnotationPage(
-            @Transient val picture: Document? = null,
-            @Transient val config: Config? = null
-        ) {
-            val id: String
-            val type: String
-            var items: Array<Annotation> = emptyArray()
+        inner class AnnotationPage() {
+            private val id: String
+            private val type: String
+            private var items: Array<Annotation> = emptyArray()
 
             init {
-                id = "${config?.getString("prefix")}/${picture?.uid}/canvas/page"
+                id = "${baseUrl.buildString()}/Canvas/AnnotationPage/${this@CanvasItem.picture.uid}"
                 type = "AnnotationPage"
-                items = Array<Annotation>(1){_-> Annotation(picture, config) }
+                items = Array(1){ Annotation() }
             }
 
             @Serializable
-            class Annotation(
-                @Transient val picture: Document? = null,
-                @Transient val config: Config? = null
-            ) {
-                val id: String
-                val type: String
-                val motivation: String
-                val target: String
-                val body: Body
+            inner class Annotation() {
+                private val id: String
+                private val type: String
+                private val motivation: String
+                private val target: String
+                private val body: Body
 
                 init {
-                    id = "${config?.getString("prefix")}/${picture?.uid}/canvas/page"
+                    id = "${baseUrl.buildString()}/Canvas/AnnotationPage/Annotation/${this@CanvasItem.picture.uid}"
                     type = "Annotation"
                     motivation = "painting"
-                    target = "${config?.getString("prefix")}/${picture?.uid}/canvas"
-                    body = Body(picture, config)
+                    target = "${baseUrl.buildString()}/Canvas/${this@CanvasItem.picture.uid}"
+                    body = Body()
                 }
 
                 @Serializable
-                class Body (
-                    @Transient val picture: Document? = null,
-                    @Transient val config: Config? = null
-                ){
-                    val id: String
-                    val type: String
-                    val width: Int
-                    val height: Int
-                    val service: Thumbnail.Service
+                inner class Body () {
+                    private val id: String
+                    private val type: String
+                    private var width: Int = 0
+                    private var height: Int = 0
+                    private val service: Service
 
                     init {
-                        id = "${config?.getString("prefix")}/${picture?.uid}/full/max/0/default.jpg"
+                        id = "${iiifUrl.buildString()}/${this@CanvasItem.picture.uid}/full/500,/0/default.jpg"
                         type = "Image"
-                        width = picture?.properties?.pictureInfo?.width ?: 0
-                        height = picture?.properties?.pictureInfo?.height ?: 0
-                        service = Thumbnail.Service(picture, config)
+                        this@CanvasItem.picture.properties?.pictureInfo?.let{
+                            width = it.width
+                            height = it.height
+                        }
+                        service = Service(this@CanvasItem.picture)
                     }
                 }
             }
@@ -123,36 +121,35 @@ class Manifest
     }
 
     @Serializable
-    class Thumbnail (
-        @Transient var picture: Document? = null,
-        @Transient val config: Config? = null
+    inner class Thumbnail (
+        @Transient var picture: Document = Document()
     ) {
-        val id: String
-        val type: String
-        val format: String
-        val service: Service
+        private val id: String
+        private val type: String
+        private val format: String
+        private val service: Service
 
-        @Serializable
-        class Service(
-            @Transient var picture: Document? = null,
-            @Transient val config: Config? = null
-        ) {
-            val id: String
-            val type: String
-            val profile: String
-
-            init {
-                id = "${config?.getString("prefix")}/${picture?.uid}"
-                type = "ImageService3"
-                profile = "level2"
-            }
-        }
 
         init {
-            id = "${config?.getString("prefix")}/${picture?.uid}/full/500,/0/default.jpg"
+            id = "${iiifUrl.buildString()}/${picture.uid}/full/500,/0/default.jpg"
             type = "Image"
             format = "image/jpeg"
             service = Service(picture)
+        }
+    }
+
+    @Serializable
+    inner class Service(
+        @Transient var picture: Document = Document()
+    ) {
+        private val id: String
+        private val type: String
+        private val profile: String
+
+        init {
+            id = "${iiifUrl.buildString()}/${picture.uid}"
+            type = "ImageService3"
+            profile = "level2"
         }
     }
 }

@@ -12,8 +12,8 @@ class NXQL (
     val context = Context()
 
     @Serializable
-    class Params(val query: String)
+    inner class Params(val query: String)
     @Serializable
-    class Context()
+    inner class Context()
 
 }

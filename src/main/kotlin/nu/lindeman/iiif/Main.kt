@@ -52,8 +52,11 @@ fun Application.module() {
         )
     }
     routing {
-        cantaloupeReverseProxy(config)
-        manifest(nuxeo, config.getConfig("app.iiif"))
+        cantaloupeReverseProxy(config.getConfig("app.cantaloupe"))
+        val iiifUrl = serverAddressUrl.clone()
+        iiifUrl.path(config.getString("app.cantaloupe.path"))
+
+        manifest(nuxeo, iiifUrl)
         document(nuxeo)
         documents(nuxeo)
         viewer(serverAddressUrl)
@@ -83,7 +86,7 @@ fun Route.documents(nuxeo: Nuxeo) {
     }
 }
 
-fun Route.manifest(nuxeo: Nuxeo, config: Config) {
+fun Route.manifest(nuxeo: Nuxeo, baseUrl: URLBuilder) {
     get ("/manifest/from/folder/by/path/{...}") {
         val path = call.request.uri.replace("/manifest/from/folder/by/path", "")
         val folder = nuxeo.getDocument("path", path, Nuxeo.PrimaryTypeFolder)
@@ -92,7 +95,7 @@ fun Route.manifest(nuxeo: Nuxeo, config: Config) {
             call.respondText("Document of type '${call.parameters["primaryType"]}' with ${call.parameters["key"]} = '${call.parameters["value"]}' not found\n")
         } else {
             val pictures = nuxeo.getDocuments("parentId", folder.uid, Nuxeo.PrimaryTypePicture)
-            val manifest = Manifest(config, folder, pictures)
+            val manifest = Manifest(baseUrl, folder, pictures)
             call.respond(manifest)
         }
     }
@@ -103,16 +106,16 @@ fun Route.manifest(nuxeo: Nuxeo, config: Config) {
             call.respondText("Document of type '${call.parameters["primaryType"]}' with ${call.parameters["key"]} = '${call.parameters["value"]}' not found\n")
         } else {
             val pictures = nuxeo.getDocuments("parentId", folder.uid, Nuxeo.PrimaryTypePicture)
-            val manifest = Manifest(config, folder, pictures)
+            val manifest = Manifest(baseUrl, folder, pictures)
             call.respond(manifest)
         }
     }
 }
 // Inspired ;-) by https://ktor.kotlincn.net/samples/other/reverse-proxy.html
 fun Route.cantaloupeReverseProxy(config: Config) {
-    get ("/iiif/{...}") {
+    get ("/${config.getString("path")}/{...}") {
         val proxyClient = HttpClient(CIO)
-        val response = proxyClient.request<HttpResponse>("${config.getString("app.cantaloupe.server")}${call.request.uri}")
+        val response = proxyClient.request<HttpResponse>("${config.getString("url")}${call.request.uri}")
         val proxiedHeaders = response.headers
         val contentType = proxiedHeaders[HttpHeaders.ContentType]
         val contentLength = proxiedHeaders[HttpHeaders.ContentLength]
