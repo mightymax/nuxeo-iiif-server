@@ -21,7 +21,7 @@ class Manifest
 {
 
     @Transient
-    var baseUrl = iiifUrl.clone().path("manifest/from/folder/uid/${folder.uid}")
+    var baseUrl = iiifUrl.clone().path("manifest/from/${folder.type.lowercase()}/uid/${folder.uid}")
 
     private var id: String
     private var type: String
