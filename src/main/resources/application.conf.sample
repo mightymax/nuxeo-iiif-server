@@ -1,6 +1,7 @@
 ktor {
     deployment {
         port = 8080
+        port = ${?PORT}
     }
     application {
         modules = [ nu.lindeman.iiif.MainKt.module ]
@@ -14,10 +15,8 @@ app {
         url = "http://localhost:8180/nuxeo/api/v1"
         ; proxy = "http://optional-proxy-address:8080/"
     }
-    iiif {
-        prefix = "http://localhost:8080/iiif/3"
-    }
     cantaloupe {
-        server = "http://192.168.1.110:8280"
+        server = "http://localhost:8280"
+        path = iiif/3
     }
 }

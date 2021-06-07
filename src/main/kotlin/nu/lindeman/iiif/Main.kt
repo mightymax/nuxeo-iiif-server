@@ -53,10 +53,8 @@ fun Application.module() {
     }
     routing {
         cantaloupeReverseProxy(config.getConfig("app.cantaloupe"))
-        val iiifUrl = serverAddressUrl.clone()
-        iiifUrl.path(config.getString("app.cantaloupe.path"))
-
-        manifest(nuxeo, iiifUrl)
+        nuxeoReverseProxy(nuxeo)
+        manifest(nuxeo, serverAddressUrl.clone().path(config.getString("app.cantaloupe.path")))
         document(nuxeo)
         documents(nuxeo)
         viewer(serverAddressUrl)
@@ -111,6 +109,33 @@ fun Route.manifest(nuxeo: Nuxeo, baseUrl: URLBuilder) {
         }
     }
 }
+
+fun Route.nuxeoReverseProxy(nuxeo: Nuxeo) {
+    get ("/nxfile/{uuid}") {
+        val proxyClient = nuxeo.getClient()
+        val finalUrl = "https://api.memorix.acc.amsterdam.nl/nuxeo/nxfile/default/${call.parameters["uuid"]}"
+        val response = proxyClient.request<HttpResponse>(finalUrl)
+        val proxiedHeaders = response.headers
+        val contentType = proxiedHeaders[HttpHeaders.ContentType]
+        val contentLength = proxiedHeaders[HttpHeaders.ContentLength]
+        call.respond(object : OutgoingContent.WriteChannelContent() {
+            override val contentLength: Long? = contentLength?.toLong()
+            override val contentType: ContentType? = contentType?.let { ContentType.parse(it) }
+            override val headers: Headers = Headers.build {
+                appendAll(proxiedHeaders.filter { key, _ ->
+                    !key.equals(HttpHeaders.ContentType, ignoreCase = true)
+                            && !key.equals(HttpHeaders.ContentLength, ignoreCase = true)
+                            && !key.equals(HttpHeaders.TransferEncoding, ignoreCase = true)
+                })
+            }
+            override val status: HttpStatusCode = response.status
+            override suspend fun writeTo(channel: ByteWriteChannel) {
+                response.content.copyAndClose(channel)
+            }
+        })
+    }
+}
+
 // Inspired ;-) by https://ktor.kotlincn.net/samples/other/reverse-proxy.html
 fun Route.cantaloupeReverseProxy(config: Config) {
     get ("/${config.getString("path")}/{...}") {

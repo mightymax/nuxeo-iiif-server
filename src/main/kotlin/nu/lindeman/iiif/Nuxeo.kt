@@ -50,6 +50,10 @@ class Nuxeo(val config: Config) {
         }
     }
 
+    fun getClient(): HttpClient {
+        return client
+    }
+
     private suspend fun nxql(query: NXQL): Documents {
         return client.post<Documents>("${config.getString("url")}/automation/Document.Query") {
             headers{
