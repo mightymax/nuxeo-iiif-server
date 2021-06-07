@@ -12,7 +12,11 @@ app {
     nuxeo {
         username = NuxeoUsername
         password = NuxeoPassword
-        url = "http://localhost:8180/nuxeo/api/v1"
+        url = "http://localhost:8180"
+        path {
+            blob = nuxeo/nxfile/default
+            nxql = nuxeo/api/v1/automation/Document.Query
+        }
         ; proxy = "http://optional-proxy-address:8080/"
     }
     cantaloupe {

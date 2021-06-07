@@ -20,6 +20,9 @@ import kotlin.Exception
 
 
 class Nuxeo(val config: Config) {
+
+    val nxqlEndpoint = URLBuilder(config.getString("url")).path(config.getString("path.nxql"))
+    val blobEndpoint = URLBuilder(config.getString("url")).path(config.getString("path.blob"))
     companion object {
         val ContentTypeNXRequest: ContentType = ContentType("application", "json+nxrequest")
         const val PrimaryTypePicture: String = "Picture"
@@ -55,7 +58,7 @@ class Nuxeo(val config: Config) {
     }
 
     private suspend fun nxql(query: NXQL): Documents {
-        return client.post<Documents>("${config.getString("url")}/automation/Document.Query") {
+        return client.post<Documents>(nxqlEndpoint.buildString()) {
             headers{
                 append(HttpHeaders.ContentType, ContentTypeNXRequest.toString())
                 append("properties", "*")

@@ -111,9 +111,9 @@ fun Route.manifest(nuxeo: Nuxeo, baseUrl: URLBuilder) {
 }
 
 fun Route.nuxeoReverseProxy(nuxeo: Nuxeo) {
-    get ("/nxfile/{uuid}") {
+    get ("/blob/{uuid}") {
         val proxyClient = nuxeo.getClient()
-        val finalUrl = "https://api.memorix.acc.amsterdam.nl/nuxeo/nxfile/default/${call.parameters["uuid"]}"
+        val finalUrl = "${nuxeo.blobEndpoint.buildString()}/${call.parameters["uuid"]}"
         val response = proxyClient.request<HttpResponse>(finalUrl)
         val proxiedHeaders = response.headers
         val contentType = proxiedHeaders[HttpHeaders.ContentType]
@@ -184,20 +184,8 @@ fun Route.cantaloupeReverseProxy(config: Config) {
 
 fun Route.viewer(url: URLBuilder)
 {
-    data class User(val id: Int, val name: String)
-    get("/viewer/folder") {
-        val manifest = "${url.buildString()}/manifest/from/folder/by/uid/c7065ef6-ad5a-4235-8f05-1d179bc1e147"
-        call.respond(FreeMarkerContent("mirador.ftl", mapOf("manifest" to manifest)))
-    }
-
-    get("/viewer/folder/{uuid}") {
-        val manifest = "${url.buildString()}/manifest/from/folder/by/uid/${call.parameters["uuid"]}"
-        call.respond(FreeMarkerContent("mirador.ftl", mapOf("manifest" to manifest)))
-    }
-
-    get ("/viewer/folder/path/{...}") {
-        val manifest = "${url.buildString()}${call.request.uri.replace("/viewer/folder/path", "/manifest/from/folder/by/path")}"
-        println(manifest)
+    get ("/viewer/from/folder/by/{...}") {
+        val manifest = "${url.buildString()}${call.request.uri.replace("/viewer/", "/manifest/")}"
         call.respond(FreeMarkerContent("mirador.ftl", mapOf("manifest" to manifest)))
     }
 }
