@@ -41,6 +41,7 @@ fun Application.module() {
         method(HttpMethod.Head)
         method(HttpMethod.Options)
     }
+    install(StatusPages)
     install(FreeMarker) {
         templateLoader = ClassTemplateLoader(this::class.java.classLoader, "templates")
     }
@@ -132,73 +133,15 @@ fun Route.manifest(nuxeo: Nuxeo, baseUrl: URLBuilder) {
 
 fun Route.nuxeoReverseProxy(nuxeo: Nuxeo) {
     get ("/blob/{uuid}") {
-        val proxyClient = nuxeo.getClient()
-        val finalUrl = "${nuxeo.blobEndpoint.buildString()}/${call.parameters["uuid"]}"
-        val response = proxyClient.request<HttpResponse>(finalUrl)
-        val proxiedHeaders = response.headers
-        val contentType = proxiedHeaders[HttpHeaders.ContentType]
-        val contentLength = proxiedHeaders[HttpHeaders.ContentLength]
-        call.respond(object : OutgoingContent.WriteChannelContent() {
-            override val contentLength: Long? = contentLength?.toLong()
-            override val contentType: ContentType? = contentType?.let { ContentType.parse(it) }
-            override val headers: Headers = Headers.build {
-                appendAll(proxiedHeaders.filter { key, _ ->
-                    !key.equals(HttpHeaders.ContentType, ignoreCase = true)
-                            && !key.equals(HttpHeaders.ContentLength, ignoreCase = true)
-                            && !key.equals(HttpHeaders.TransferEncoding, ignoreCase = true)
-                })
-            }
-            override val status: HttpStatusCode = response.status
-            override suspend fun writeTo(channel: ByteWriteChannel) {
-                response.content.copyAndClose(channel)
-            }
-        })
+        ReverseProxy(call, "${nuxeo.blobEndpoint.buildString()}/${call.parameters["uuid"]}")
+            .noHtml()
+            .request(nuxeo.getClient())
     }
 }
 
-// Inspired ;-) by https://ktor.kotlincn.net/samples/other/reverse-proxy.html
 fun Route.cantaloupeReverseProxy(config: Config) {
     get ("/${config.getString("path")}/{...}") {
-        val proxyClient = HttpClient(CIO)
-        val response = proxyClient.request<HttpResponse>("${config.getString("url")}${call.request.uri}")
-        val proxiedHeaders = response.headers
-        val contentType = proxiedHeaders[HttpHeaders.ContentType]
-        val contentLength = proxiedHeaders[HttpHeaders.ContentLength]
-
-        // Depending on the ContentType, we process the request one way or another.
-        when {
-            // In the case of HTML we download the whole content and process it as a string replacing
-            // wikipedia links.
-            contentType?.startsWith("text/html") == true -> {
-                call.respond(
-                    TextContent(
-                        response.readText(),
-                        ContentType.Text.Html.withCharset(Charsets.UTF_8),
-                        response.status
-                    )
-                )
-            }
-            else -> {
-                // In the case of other content, we simply pipe it. We return a [OutgoingContent.WriteChannelContent]
-                // propagating the contentLength, the contentType and other headers, and simply we copy
-                // the ByteReadChannel from the HTTP client response, to the HTTP server ByteWriteChannel response.
-                call.respond(object : OutgoingContent.WriteChannelContent() {
-                    override val contentLength: Long? = contentLength?.toLong()
-                    override val contentType: ContentType? = contentType?.let { ContentType.parse(it) }
-                    override val headers: Headers = Headers.build {
-                        appendAll(proxiedHeaders.filter { key, _ ->
-                            !key.equals(HttpHeaders.ContentType, ignoreCase = true)
-                                    && !key.equals(HttpHeaders.ContentLength, ignoreCase = true)
-                                    && !key.equals(HttpHeaders.TransferEncoding, ignoreCase = true)
-                        })
-                    }
-                    override val status: HttpStatusCode = response.status
-                    override suspend fun writeTo(channel: ByteWriteChannel) {
-                        response.content.copyAndClose(channel)
-                    }
-                })
-            }
-        }
+        ReverseProxy(call, "${config.getString("url")}${call.request.uri}").request()
     }
 }
 
@@ -206,11 +149,11 @@ fun Route.viewer(url: URLBuilder)
 {
     get ("/viewer/from/{picture_or_folder}/by/{...}") {
         val manifest = "${url.buildString()}${call.request.uri.replace("/viewer/", "/manifest/")}"
-        if (call.parameters["picture_or_folder"].toString().lowercase() == "picture") {
-            call.respond(FreeMarkerContent("mirador.picture.html", mapOf("manifest" to manifest)))
-        } else {
-            call.respond(FreeMarkerContent("mirador.folder.html", mapOf("manifest" to manifest)))
+        when (val viewerSource = call.parameters["picture_or_folder"].toString().lowercase()) {
+            "picture", "folder" -> call.respond(FreeMarkerContent("mirador.$viewerSource.html", mapOf("manifest" to manifest)))
+            else -> call.respond(HttpStatusCode.NotFound, "Unkown viewertype '$viewerSource', use 'folder' or 'picture'")
         }
+
     }
 
 }
